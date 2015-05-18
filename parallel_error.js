@@ -104,29 +104,58 @@ returnError(function(e, _v) {
 
 
 
-var promiseGateLog = getLogger('Promise-gate');
-var promiseGateErrorLog = getLogger('Promise-gate', true);
-Promise.all([getPromise1(), getPromise2(), getErrorPromise()])
-  .then(function(vals) {
-    promiseGateLog(vals);
-    return getPromise3();
-  }, promiseGateErrorLog)
-  .then(function(val3) {
-    promiseGateLog(val3);
-  }, promiseGateErrorLog)
-  .catch(promiseGateErrorLog);
+var async = require('async');
 
-var promiseLatchLog = getLogger('Promise-latch');
-var promiseLatchErrorLog = getLogger('Promise-latch', true);
-Promise.race([getPromise1(), getPromise2(), getErrorPromise()])
-  .then(function(val) {
-    promiseLatchLog(val, 'wins');
-    return getPromise3();
-  }, promiseLatchErrorLog)
-  .then(function(val3) {
-    promiseLatchLog(val3);
-  }, promiseLatchErrorLog)
-  .catch(promiseLatchErrorLog);
+var asyncGateLog = getLogger('async-gate');
+var asyncGateErrorLog = getLogger('async-gate', true);
+// wrapper that logs success callback data
+var asyncGateWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncGateLog(val);
+            }
+            done(err, val);
+        });
+    }
+};
+async.parallel([asyncGateWrap(step1), asyncGateWrap(step2), asyncGateWrap(returnError)], function(err) {
+    if (err) {
+        return asyncGateErrorLog(err);
+    }
+    step3(function(err3, val3) {
+        if (err3) {
+            return asyncGateErrorLog(err1);
+        }
+        asyncGateLog(val3);
+    });
+});
+
+var asyncLatchLog = getLogger('async-latch');
+var asyncLatchErrorLog = getLogger('async-latch', true);
+// wrapper that logs callback data and returns true (required by async.some)
+var asyncLatchWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncLatchLog(val);
+            }
+            else {
+                asyncLatchErrorLog(err);
+            }
+            done(true);
+        });
+    }
+};
+async.parallel([asyncLatchWrap(step1), asyncLatchWrap(step2), asyncLatchWrap(returnError)], function() {
+    asyncLatchLog('? wins');
+    step3(function(err3, val3) {
+        if (err3) {
+            return asyncLatchErrorLog(err1);
+        }
+        asyncLatchLog(val3);
+    });
+});
 
 
 
@@ -167,6 +196,32 @@ ASQ().first(latchWrap(step1), latchWrap(step2), latchWrap(returnError))
 .val(function(val) { asqLatchLog(val, 'wins'); })
 .then(latchWrap(step3))
 .or(asqLatchErrorLog);
+
+
+
+var promiseGateLog = getLogger('Promise-gate');
+var promiseGateErrorLog = getLogger('Promise-gate', true);
+Promise.all([getPromise1(), getPromise2(), getErrorPromise()])
+  .then(function(vals) {
+    promiseGateLog(vals);
+    return getPromise3();
+  }, promiseGateErrorLog)
+  .then(function(val3) {
+    promiseGateLog(val3);
+  }, promiseGateErrorLog)
+  .catch(promiseGateErrorLog);
+
+var promiseLatchLog = getLogger('Promise-latch');
+var promiseLatchErrorLog = getLogger('Promise-latch', true);
+Promise.race([getPromise1(), getPromise2(), getErrorPromise()])
+  .then(function(val) {
+    promiseLatchLog(val, 'wins');
+    return getPromise3();
+  }, promiseLatchErrorLog)
+  .then(function(val3) {
+    promiseLatchLog(val3);
+  }, promiseLatchErrorLog)
+  .catch(promiseLatchErrorLog);
 
 
 

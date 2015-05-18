@@ -31,6 +31,46 @@ step1(function(err1, val1) {
     });
 });
 
+var asyncLog = getLogger('async');
+var asyncErrorLog = getLogger('async', true);
+var async = require('async');
+// wrapper that logs success callback data
+var asyncWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncLog(val);
+            }
+            done(err, val);
+        });
+    }
+};
+
+async.series([asyncWrap(step1), asyncWrap(step2), asyncWrap(step3)], function(err) {
+    if (err) {
+        asyncErrorLog(err);
+    }
+});
+
+var asqLog = getLogger('ASQ');
+var asqErrorLog = getLogger('ASQ', true);
+var ASQ = require('asynquence');
+// wrapper that logs callback data
+var asqWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (err) {
+                asqErrorLog(err);
+                return done.fail(err);
+            }
+            asqLog(val);
+            done(val);
+        });
+    };
+};
+
+ASQ(asqWrap(step1), asqWrap(step2), asqWrap(step3));
+
 var promiseLog = getLogger('Promise');
 var promiseErrorLog = getLogger('Promise', true);
 
@@ -47,25 +87,6 @@ getPromise1()
     promiseLog(val3);
   }, promiseErrorLog)
   .catch(promiseErrorLog);
-
-var asqLog = getLogger('ASQ');
-var asqErrorLog = getLogger('ASQ', true);
-var ASQ = require('asynquence');
-
-var wrap = function(fn) {
-    return function(done) {
-        fn(function(err, val) {
-            if (err) {
-                asqErrorLog(err);
-                return done.fail(err);
-            }
-            asqLog(val);
-            done(val);
-        });
-    };
-};
-
-ASQ(wrap(step1), wrap(step2), wrap(step3));
 
 var genLog = getLogger('gen');
 var genErrorLog = getLogger('gen', true);

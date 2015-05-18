@@ -7,6 +7,7 @@
   "dependencies": {
   	"traceur": "0.0.*",
   	"asynquence": "0.6.*",
-  	"asynquence-contrib": "0.8.*"
+  	"asynquence-contrib": "0.8.*",
+    "async": "0.9.*"
   }
 }

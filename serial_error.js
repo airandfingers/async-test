@@ -39,6 +39,27 @@ step1(function(err1, val1) {
     });
 });
 
+var asyncLog = getLogger('async');
+var asyncErrorLog = getLogger('async', true);
+var async = require('async');
+// wrapper that logs success callback data
+var asyncWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncLog(val);
+            }
+            done(err, val);
+        });
+    }
+};
+
+async.series([asyncWrap(step1), asyncWrap(step2), asyncWrap(returnError), asyncWrap(step3)], function(err) {
+    if (err) {
+        asyncErrorLog(err);
+    }
+});
+
 var promiseLog = getLogger('Promise');
 var promiseErrorLog = getLogger('Promise', true);
 

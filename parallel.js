@@ -77,6 +77,101 @@ step2(function(err2, _val2) {
 
 
 
+var async = require('async');
+
+var asyncGateLog = getLogger('async-gate');
+var asyncGateErrorLog = getLogger('async-gate', true);
+// wrapper that logs success callback data
+var asyncGateWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncGateLog(val);
+            }
+            done(err, val);
+        });
+    }
+};
+async.parallel([asyncGateWrap(step1), asyncGateWrap(step2)], function(err) {
+    if (err) {
+        return asyncGateErrorLog(err);
+    }
+    step3(function(err3, val3) {
+        if (err3) {
+            return asyncGateErrorLog(err1);
+        }
+        asyncGateLog(val3);
+    });
+});
+
+var asyncLatchLog = getLogger('async-latch');
+var asyncLatchErrorLog = getLogger('async-latch', true);
+// wrapper that logs callback data and returns true (required by async.some)
+var asyncLatchWrap = function(fn) {
+    return function(done) {
+        fn(function(err, val) {
+            if (val) {
+                asyncLatchLog(val);
+            }
+            else {
+                asyncLatchErrorLog(err);
+            }
+            done(true);
+        });
+    }
+};
+async.parallel([asyncLatchWrap(step1), asyncLatchWrap(step2)], function() {
+    asyncLatchLog('? wins');
+    step3(function(err3, val3) {
+        if (err3) {
+            return asyncLatchErrorLog(err1);
+        }
+        asyncLatchLog(val3);
+    });
+});
+
+
+
+var ASQ = require('asynquence');
+require('asynquence-contrib');
+var getAsqWrapper = function(log, errorLog) {
+    // wrapper function
+    return function(fn) {
+        //wrapped function
+        return function(done) {
+            fn(function(err, val) {
+                if (err) {
+                    errorLog(err);
+                    return done.fail(err);
+                }
+                log(val);
+                done(val);
+            });
+        };
+    };
+};
+
+var asqGateLog = getLogger('ASQ-gate');
+var asqGateErrorLog = getLogger('ASQ-gate', true);
+var asqGateWrap = getAsqWrapper(asqGateLog, asqGateErrorLog);
+ASQ().gate(asqGateWrap(step1), asqGateWrap(step2))
+.val(function() {
+    var args = Array.prototype.slice.call(arguments);
+    asqGateLog(args);
+})
+.or(asqGateErrorLog)
+.then(asqGateWrap(step3));
+
+var asqLatchLog = getLogger('ASQ-latch');
+var asqLatchErrorLog = getLogger('ASQ-latch', true);
+var latchWrap = getAsqWrapper(asqLatchLog, asqLatchErrorLog);
+ASQ().first(latchWrap(step1), latchWrap(step2))
+.val(function(val) { asqLatchLog(val, 'wins'); })
+.or(asqLatchErrorLog)
+.then(latchWrap(step3));
+
+
+
 var promiseGateLog = getLogger('Promise-gate');
 var promiseGateErrorLog = getLogger('Promise-gate', true);
 Promise.all([getPromise1(), getPromise2()])
@@ -100,46 +195,6 @@ Promise.race([getPromise1(), getPromise2()])
     promiseLatchLog(val3);
   }, promiseLatchErrorLog)
   .catch(promiseLatchErrorLog);
-
-
-
-var ASQ = require('asynquence');
-require('asynquence-contrib');
-var getWrapper = function(log, errorLog) {
-    // wrapper function
-    return function(fn) {
-        //wrapped function
-        return function(done) {
-            fn(function(err, val) {
-                if (err) {
-                    errorLog(err);
-                    return done.fail(err);
-                }
-                log(val);
-                done(val);
-            });
-        };
-    };
-};
-
-var asqGateLog = getLogger('ASQ-gate');
-var asqGateErrorLog = getLogger('ASQ-gate', true);
-var gateWrap = getWrapper(asqGateLog, asqGateErrorLog);
-ASQ().gate(gateWrap(step1), gateWrap(step2))
-.val(function() {
-    var args = Array.prototype.slice.call(arguments);
-    asqGateLog(args);
-})
-.or(asqGateErrorLog)
-.then(gateWrap(step3));
-
-var asqLatchLog = getLogger('ASQ-latch');
-var asqLatchErrorLog = getLogger('ASQ-latch', true);
-var latchWrap = getWrapper(asqLatchLog, asqLatchErrorLog);
-ASQ().first(latchWrap(step1), latchWrap(step2))
-.val(function(val) { asqLatchLog(val, 'wins'); })
-.or(asqLatchErrorLog)
-.then(latchWrap(step3));
 
 
 
